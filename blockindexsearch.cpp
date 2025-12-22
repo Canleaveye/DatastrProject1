@@ -1,0 +1,103 @@
+#include "blockindexsearch.h"
+
+// 索引表单元构造函数
+IndexTable::IndexTable() {
+    start = -1;
+    end = -1;
+}
+
+// 设置索引表单元的起始索引
+int IndexTable::setStart(int s) {
+    start = s;
+    return start;
+}
+
+// 索引表单元的结束索引
+int IndexTable::setEnd(int e) {
+    end = e;
+    return end;
+}
+
+int IndexTable::getStart() const {
+    return start;
+}
+
+int IndexTable::getEnd() const {
+    return end;
+}
+
+// 构造函数
+BlockIndexSearch::BlockIndexSearch() {
+
+}
+
+// 单例模式实现
+BlockIndexSearch& BlockIndexSearch::getInstance() {
+    static BlockIndexSearch instance = BlockIndexSearch();
+    return instance;
+}
+
+
+// 分块索引查找
+void BlockIndexSearch::initTable(StaticList& list) {
+    // 先对链表进行链式基数排序
+    ChainRadixSort::getInstance().sort(list);
+    int l_curr = list.getHead();
+    // 初始化索引表
+    for(int i = 0;i < 26;i++) {
+        table[i] = IndexTable();
+    }
+    // 再根据静态链表建立索引表
+    while(l_curr != -1) {
+        // 确认索引
+        int index = list.get(l_curr).plate[3] - 'A';
+        // 初始加入表中设成表头
+        if(table[index].getStart() == -1) {
+            table[index].setStart(l_curr);
+        }
+        // 更新结束位置
+        table[index].setEnd(l_curr);
+        // 继续下一个
+        l_curr = list.getNext(l_curr);
+    }
+    return ;
+}
+
+// 根据分块索引进行查找
+int BlockIndexSearch::search(StaticList& list,const string& plate) {
+//    // 什么都没输入(GUI)中已经单独处理
+//    if(plate.empty()) {
+//        return -1;
+//    }
+
+    // 根据第一个字母找到对应分块
+    int index = plate[3] - 'A';
+    if(index < 0 || index >= 26) {
+        return -1;
+    }
+    if(table[index].getStart() == -1) {
+        return -1;
+    }
+    int curr = table[index].getStart();
+    int end = table[index].getEnd();
+    if(curr == -1) {
+        return false;
+    }
+    while(curr != -1) {
+        CarPlate data = list.get(curr);
+        if(data.plate == plate) {
+            return curr;
+        }
+        if(data.plate > plate) {
+            // 已经找到比他大的了，说明一定不在里面
+            return -1;
+        }
+        if(curr == end) {
+            break;
+        }
+        curr = list.getNext(curr);
+    }
+    // 未找到的情况
+    return -1;
+}
+

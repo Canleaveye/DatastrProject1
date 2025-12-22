@@ -1,0 +1,5 @@
+# Qt Creator 用户配置文件 
+*.pro.user
+*.pro.user.*
+CMakeLists.txt.user
+*.pro
