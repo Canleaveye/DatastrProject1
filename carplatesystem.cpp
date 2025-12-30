@@ -29,8 +29,12 @@ void StaticList::clear() {
     length = 0;
 }
 
-int StaticList::size() const { return length; }
-bool StaticList::empty() const { return length == 0; }
+int StaticList::size() const {
+    return length;
+}
+bool StaticList::empty() const {
+    return length == 0;
+}
 
 bool StaticList::add(const CarPlate& cp) {
     if (freeList == -1) {
@@ -59,12 +63,16 @@ bool StaticList::add(const CarPlate& cp) {
 }
 
 CarPlate StaticList::get(int idx) const {
-    if (idx < 0 || idx >= MAX_SIZE) return CarPlate();
+    if (idx < 0 || idx >= MAX_SIZE) {
+        return CarPlate();
+    }
     return data[idx];
 }
 
 bool StaticList::set(int idx, const CarPlate& cp) {
-    if (idx < 0 || idx >= MAX_SIZE) return false;
+    if (idx < 0 || idx >= MAX_SIZE) {
+        return false;
+    }
     data[idx] = cp;
     return true;
 }
@@ -119,50 +127,19 @@ void StaticList::display() const {
     cout << "========================" << endl;
 }
 
-const CarPlate* StaticList::getData() const { return data; }
-int StaticList::getNext(int idx) const { return (idx >= 0 && idx < MAX_SIZE) ? next[idx] : -1; }
-int StaticList::getHead() const { return head; }
-void StaticList::setNext(int idx, int nxt) { if (idx >= 0 && idx < MAX_SIZE) next[idx] = nxt; }
-
-// Manager 实现
-int Manager::partition(CarPlate arr[], int low, int high) {
-    string pivot = arr[high].plate;
-    int i = low - 1;
-
-    for (int j = low; j < high; j++) {
-        if (arr[j].plate <= pivot) {
-            i++;
-            swap(arr[i], arr[j]);
-        }
-    }
-    swap(arr[i + 1], arr[high]);
-    return i + 1;
+const CarPlate* StaticList::getData() const {
+    return data;
+}
+int StaticList::getNext(int idx) const {
+    return (idx >= 0 && idx < MAX_SIZE) ? next[idx] : -1;
+}
+int StaticList::getHead() const {
+    return head;
+}
+void StaticList::setNext(int idx, int nxt) {
+    if (idx >= 0 && idx < MAX_SIZE) next[idx] = nxt;
 }
 
-void Manager::quickSort(CarPlate arr[], int low, int high) {
-    if (low < high) {
-        int pi = partition(arr, low, high);
-        quickSort(arr, low, pi - 1);
-        quickSort(arr, pi + 1, high);
-    }
-}
-
-void Manager::showCityMap(const map<string, vector<CarPlate>>& cityMap) {
-    cout << "\n=== 城市索引 ===" << endl;
-
-    int total = 0;
-    for (const auto& entry : cityMap) {
-        cout << entry.first << " (" << entry.second.size() << "): ";
-        for (size_t i = 0; i < entry.second.size(); i++) {
-            cout << entry.second[i].plate;
-            if (i < entry.second.size() - 1) cout << ", ";
-        }
-        cout << endl;
-        total += entry.second.size();
-    }
-    cout << "总计: " << cityMap.size() << " 个城市, "
-        << total << " 个车牌" << endl;
-}
 
 bool Manager::checkPlate(const string& plate) {
     // 基础车牌长度检查
@@ -372,26 +349,21 @@ int Manager::inputRandom(StaticList& list, int count) {
 
 
 void Manager::saveToFile(const StaticList& list) {
-    cout << "\n=== 保存数据 ===" << endl;
-
-    ofstream out(DATA_FILE);
-    if (!out.is_open()) {
-        cout << "文件创建失败！" << endl;
+    ofstream local("history.txt");
+    if(!local.is_open()) {
+        cout << "无法写入文件！" << endl;
         return;
     }
-
     int p = list.getHead();
-    int count = 0;
-
     while (p != -1) {
         CarPlate cp = list.get(p);
-        out << cp.plate << "|" << cp.city << endl;
-        count++;
+        // 格式：车牌号 (换行)
+        // 只存车牌号,和导入的文件一个格式
+        local << cp.plate << endl;
         p = list.getNext(p);
     }
 
-    out.close();
-    cout << "保存 " << count << " 条到 " << DATA_FILE << endl;
+    local.close();
 }
 
 
@@ -424,30 +396,53 @@ void Manager::showStats(const StaticList& list) {
 }
 
 
-// 修改链表头函数
+// 修改链表表头函数
 void StaticList::setHead(int h) {
     head = h;
 }
 
-// 把静态链表线性化函数
+// 把静态链表线性化函数（为快速排序和折半查找写的函数）
 void StaticList::setToLink() {
-    // 排除特殊情况
-    if(length == 0) {
-        return ;
+
+    // 将静态链表彻底线性化
+    if (length == 0) {
+        return;
     }
-    // 把原来连接相对乱的链表改成线性
-    head = 0;
-    for(int i = 0;i < length - 1;i++) {
-        next[i] = i + 1;
+
+    // 把链表转化为物理有序
+    vector<CarPlate> temp;
+    temp.reserve(length);
+
+    int curr = head;
+    while (curr != -1) {
+        temp.push_back(data[curr]);
+        curr = next[curr];
     }
-    if(length < MAX_SIZE) {
-        freeList = length;
-        for(int i = length;i < MAX_SIZE - 1;i++) {
+
+    // 将暂存的数据按顺序写回 data 数组
+    for (int i = 0; i < length; i++) {
+        data[i] = temp[i];
+        if (i < length - 1) {
             next[i] = i + 1;
         }
+        else {
+            next[i] = -1;
+        }
+    }
+
+    // 重置头指针和空闲链表
+    head = 0;
+
+    // 重建空闲链表
+    if (length < MAX_SIZE) {
+        freeList = length;
+        for (int i = length; i < MAX_SIZE - 1; i++) {
+            next[i] = i + 1;
+        }
+        next[MAX_SIZE - 1] = -1;
     }
     else {
-        freeList = 0;
+        freeList = -1;
     }
 }
 

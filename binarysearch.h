@@ -2,6 +2,7 @@
 #define BINARYSEARCH_H
 #include "carplatesystem.h"
 #include "quicksort.h"
+// 折半查找功能
 
 class BinarySearch
 {

@@ -3,7 +3,6 @@
 #pragma once
 #include <string>
 #include <vector>
-#include <map>
 using namespace std;
 
 struct CarPlate {
@@ -24,21 +23,10 @@ struct CarPlate {
 
 class StaticList {
     friend class Manager;
-
 public:
     static const int MAX_SIZE = 1000;
-
-private:
-    CarPlate data[MAX_SIZE];
-    int next[MAX_SIZE];
-    int length;
-    int head;
-    int freeList;
-
-public:
     // 增加1：排序类辅助函数：用于修改链表头
     void setHead(int h);
-
     StaticList();
     void clear();
     int size() const;
@@ -58,16 +46,20 @@ public:
     void setNext(int idx, int nxt);
     // 把静态数组线性化
     void setToLink();
+
+private:
+    CarPlate data[MAX_SIZE];
+    int next[MAX_SIZE];
+    int length;
+    int head;
+    int freeList;
+
 };
 
 class Manager {
 private:
     static const string DATA_FILE;
     static const string PROVINCES;
-
-    static void quickSort(CarPlate arr[], int low, int high);
-    static int partition(CarPlate arr[], int low, int high);
-    static void showCityMap(const map<string, vector<CarPlate>>& cityMap);
 
 public:
     // 后端修改点1：公开获取城市名的工具函数
@@ -87,12 +79,6 @@ public:
 
     // 随机生成数据
     static int inputRandom(StaticList& list,int count);
-
-    // 低内聚高耦合的写法，删掉了
-//    // 查询和排序
-//    static void searchPlate(StaticList& list);
-//    static void buildIndex(StaticList& list);
-//    static void sortList(StaticList& list);
 
     // 文件操作
     static void saveToFile(const StaticList& list);

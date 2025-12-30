@@ -12,6 +12,10 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
 {
     setupUI();
+    Manager::loadFromFile(carList, "history.txt");
+    if (!carList.empty()) {
+        FuzzySearch::getInstance().setStr(carList);
+    }
     updateTableDisplay();
 }
 
@@ -20,37 +24,45 @@ MainWindow::~MainWindow()
 }
 
 void MainWindow::setupUI() {
+
     QWidget *centralWidget = new QWidget(this);
     this->setCentralWidget(centralWidget);
-    this->setWindowTitle("辽宁省汽车牌照快速查询系统");
-    this->resize(1200, 800);
+    this->setWindowTitle("🚗辽宁省汽车牌照快速查询系统");
+    this->setWindowIcon(QIcon(":/car.png"));
+    this->resize(1250, 900);
 
     // 设置布局
     QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
 
-    // 1. 顶部操作区 (输入与生成)
-    QGroupBox *inputGroup = new QGroupBox("数据录入", this);
+    // 输入保存数据区
+    QGroupBox *inputGroup = new QGroupBox("📥数据录入", this);
     QHBoxLayout *inputLayout = new QHBoxLayout(inputGroup);
-    QPushButton *btnImport = new QPushButton("文件导入", this);
-    QPushButton *btnRandom = new QPushButton("随机生成", this);
-    QPushButton *btnManual = new QPushButton("手动添加", this);
+    QPushButton *btnImport = new QPushButton("📂文件导入", this);
+    QPushButton *btnRandom = new QPushButton("🎲随机生成", this);
+    QPushButton *btnManual = new QPushButton("✍️手动添加", this);
+    QPushButton *btnUndo = new QPushButton("🔙撤销手动添加", this);
+    QPushButton *btnSave = new QPushButton("📂保存入本地",this);
     inputLayout->addWidget(btnImport);
     inputLayout->addWidget(btnRandom);
     inputLayout->addWidget(btnManual);
-
-    // 2. 中部排序与查询区
+    inputLayout->addWidget(btnUndo);
+    inputLayout->addWidget(btnSave);
+    // 排序与查询区
     QGroupBox *opGroup = new QGroupBox("排序与查询", this);
     QHBoxLayout *opLayout = new QHBoxLayout(opGroup);
 
-    QPushButton *btnRadixSort = new QPushButton("链式基数排序", this);
-    QPushButton *btnQuickSort = new QPushButton("快速排序", this);
+    QPushButton *btnRadixSort = new QPushButton("🔗链式基数排序", this);
+    QPushButton *btnQuickSort = new QPushButton("⚡快速排序", this);
 
-    QLabel *lblSearch = new QLabel("查找车牌:", this);
+    QLabel *lblSearch = new QLabel("🔍查找车牌:", this);
     searchEdit = new QLineEdit(this);
-    searchEdit->setPlaceholderText("请输入车牌号");
+    searchEdit->setPlaceholderText("输车牌号");
 
-    QPushButton *btnBlockSearch = new QPushButton("分块索引查找", this);
-    QPushButton *btnBinarySearch = new QPushButton("折半查找", this);
+    QPushButton *btnBlockSearch = new QPushButton("🧱分块索引查找", this);
+    QPushButton *btnBinarySearch = new QPushButton("🌓折半查找", this);
+    QPushButton *btnFuzzySearch = new QPushButton("🌫️模糊搜索", this);
+
+
 
     opLayout->addWidget(btnRadixSort);
     opLayout->addWidget(btnQuickSort);
@@ -59,16 +71,17 @@ void MainWindow::setupUI() {
     opLayout->addWidget(searchEdit);
     opLayout->addWidget(btnBlockSearch);
     opLayout->addWidget(btnBinarySearch);
+    opLayout->addWidget(btnFuzzySearch);
 
-    // 3. 数据展示区：以表格形式展示
+    // 以表格形式展示数据
     tableWidget = new QTableWidget(this);
     tableWidget->setColumnCount(3);
-    tableWidget->setHorizontalHeaderLabels(QStringList() << "静态链表索引" << "车牌号" << "归属地");
+    tableWidget->setHorizontalHeaderLabels(QStringList() << "🆔链表索引" << "🚙车牌号" << "🏙️归属地");
     tableWidget->horizontalHeader()->setSectionResizeMode(QHeaderView::Stretch);
     tableWidget->setEditTriggers(QAbstractItemView::NoEditTriggers); // 禁止编辑
 
-    // 4. 底部状态栏
-    statusLabel = new QLabel("就绪", this);
+    // 底部状态栏
+    statusLabel = new QLabel("🟢系统就绪", this);
 
 
     // 添加到主布局
@@ -85,6 +98,9 @@ void MainWindow::setupUI() {
     connect(btnQuickSort, &QPushButton::clicked, this, &MainWindow::onQuickSort);
     connect(btnBlockSearch, &QPushButton::clicked, this, &MainWindow::onBlockSearch);
     connect(btnBinarySearch, &QPushButton::clicked, this, &MainWindow::onBinarySearch);
+    connect(btnFuzzySearch, &QPushButton::clicked, this, &MainWindow::onFuzzySearch);
+    connect(btnUndo, &QPushButton::clicked, this, &MainWindow::onUndo);
+    connect(btnSave, &QPushButton::clicked, this, &MainWindow::onSave);
 }
 
 // 刷新表格显示，即遍历静态链表
@@ -124,7 +140,7 @@ void MainWindow::onImportFile() {
 
     // 调用 Manager 的函数
     int count = Manager::loadFromFile(carList, file.toStdString());
-
+    FuzzySearch::getInstance().setStr(carList);
     updateTableDisplay();
     QMessageBox::information(this, "导入成功", QString("成功导入 %1 条数据").arg(count));
 }
@@ -141,6 +157,7 @@ void MainWindow::onRandomGenerate() {
 
     // 调用 Manager 的接口
     int added = Manager::inputRandom(carList, count);
+    FuzzySearch::getInstance().setStr(carList);
     // 展示在表格
     updateTableDisplay();
     QMessageBox::information(this, "生成完成", QString("成功生成 %1 条数据").arg(added));
@@ -157,6 +174,8 @@ void MainWindow::onManualAdd() {
     bool ok = Manager::addManual(carList, text.toStdString());
 
     if (ok) {
+        FuzzySearch::getInstance().insert(text.toStdString());
+        undoStack.push(text.toStdString());
         updateTableDisplay();
         QMessageBox::information(this, "成功", "添加成功");
     }
@@ -190,15 +209,13 @@ void MainWindow::onQuickSort() {
         QMessageBox::warning(this, "提示", "没有数据可排序");
         return;
     }
-    // 把链表设置成线性的
     carList.setToLink();
-
     // 调用快排类API
     QuickSort::getInstance().qsort(carList,carList.getHead(),carList.getLength()-1);
 
     //遍历链表显示数据
     updateTableDisplay();
-    QMessageBox::information(this, "成功", QString("快速排序完成！\n数据量：%1").arg(carList.size()));
+    QMessageBox::information(this, "成功", QString("快速排序完成！"));
 }
 
 
@@ -279,7 +296,86 @@ void MainWindow::onBinarySearch() {
     }
 }
 
-// 刷新表格的槽函数实现
-void MainWindow::onRefreshTable() {
-    updateTableDisplay();
+// 模糊搜索槽函数实现
+void MainWindow::onFuzzySearch() {
+    // 获取输入
+    string pre = searchEdit->text().trimmed().toStdString();
+    if (pre.empty()) {
+        QMessageBox::warning(this, "提示", "请输入要搜索的前缀（如 辽A）");
+        return;
+    }
+
+    // 接收结果的数组
+    const int MAX_RES = 100;
+    string results[MAX_RES];
+
+    // 调用模糊搜索算法
+    int count = FuzzySearch::getInstance().search(pre, results);
+
+    if (count == 0) {
+        QMessageBox::information(this, "结果", "没有找到匹配的车牌");
+        return;
+    }
+
+    // 将结果显示在表格中
+    tableWidget->setRowCount(0); // 先清空表格
+    statusLabel->setText(QString("模糊搜索找到: %1 条").arg(count));
+
+    for (int i = 0; i < count && i < MAX_RES; i++) {
+        // 在StaticList 里对应
+        CarPlate temp;
+        temp.plate = results[i];
+
+        // 在静态链表中查找完整信息
+        int idx = carList.find(temp);
+
+        if (idx != -1) {
+            CarPlate realData = carList.get(idx);
+
+            tableWidget->insertRow(i);
+            tableWidget->setItem(i, 0, new QTableWidgetItem(QString::number(idx)));
+            tableWidget->setItem(i, 1, new QTableWidgetItem(QString::fromStdString(realData.plate)));
+            tableWidget->setItem(i, 2, new QTableWidgetItem(QString::fromStdString(realData.city)));
+        }
+    }
+
+    QMessageBox::information(this, "搜索完成", QString("找到 %1 条以 '%2' 开头的车牌").arg(count).arg(QString::fromStdString(pre)));
+}
+
+
+void MainWindow::onUndo() {
+    // 判断栈状态
+    if (undoStack.empty()) {
+        QMessageBox::warning(this, "提示", "没有可撤销的操作！");
+        return;
+    }
+
+    string plateToDelete = undoStack.getTop();
+
+    // 去链表里删
+    CarPlate temp;
+    temp.plate = plateToDelete;
+
+    int idx = carList.find(temp);
+    if (idx != -1) {
+        carList.remove(idx);
+
+        // 出栈
+        undoStack.pop();
+
+        // 刷新
+        updateTableDisplay();
+        FuzzySearch::getInstance().setStr(carList); // 重建索引
+
+        QMessageBox::information(this, "撤销成功", QString("已撤销添加: %1").arg(QString::fromStdString(plateToDelete)));
+    }
+    else {
+        undoStack.pop();
+        QMessageBox::warning(this, "提示", "数据已不存在");
+    }
+}
+void MainWindow::onSave() {
+    // 直接调用函数
+    Manager::saveToFile(carList);
+    QMessageBox::information(this,"提示","成功保存进本地history.txt文件！");
 }

@@ -40,6 +40,7 @@ int QuickSort::partition(StaticList& list,int low,int high) {
     // 结束把开始地方填上
     swap(list,start,low);
     return low;
+
 }
 // 快速排序的实现
 bool QuickSort::qsort(StaticList& list,int low,int high) {

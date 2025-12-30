@@ -7,13 +7,16 @@
 #include <QLineEdit>
 #include <QLabel>
 #include <QGroupBox>
-
+#include <QCompleter>
+#include <QStringListModel>
 // 引入后端文件
 #include "carplatesystem.h"
 #include "chainradixsort.h"
 #include "blockindexsearch.h"
 #include "quicksort.h"
 #include "binarysearch.h"
+#include "fuzzysearch.h"
+#include "mystack.h"
 
 class MainWindow : public QMainWindow
 {
@@ -31,9 +34,10 @@ private slots:
     void onRadixSort();         // 链式基数排序
     void onQuickSort();         // 快速排序 (用于折半查找前置)
     void onBlockSearch();       // 分块索引查找
-    void onBinarySearch();      // 折半查找 (满足要求4)
-    void onRefreshTable();      // 刷新界面显示
-
+    void onBinarySearch();      // 折半查找
+    void onFuzzySearch();
+    void onUndo();
+    void onSave();
 private:
     // UI 组件
     QTableWidget *tableWidget;  // 显示数据的表格
@@ -42,10 +46,11 @@ private:
 
     // 核心数据对象
     StaticList carList;
-
+    Mystack undoStack;
     // 辅助函数
     void setupUI();
     void updateTableDisplay();  // 将 StaticList 的数据显示到表格
+
 };
 
 #endif // MAINWINDOW_H
